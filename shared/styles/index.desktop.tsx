@@ -157,10 +157,10 @@ export const initDesktopStyles = () => {
       s +
       `.color_${name} {color: var(--color-${name});}\n` +
       `.color_${name}_important {color: var(--color-${name}) !important;}\n` +
-      `.hover_color_${name}:hover {color: var(--color-${name});}\n` +
-      `.hover_container:hover .hover_contained_color_${name} {color: var(--color-${name}) !important;}\n` +
+      `.hover_color_${name}:hover:not(.spoiler .hover_color_${name}) {color: var(--color-${name});}\n` +
+      `.hover_container:hover .hover_contained_color_${name}:not(.spoiler .hover_contained_color_${name}) {color: var(--color-${name}) !important;}\n` +
       `.background_color_${name} {background-color: var(--color-${name});}\n` +
-      `.hover_background_color_${name}:hover {background-color: var(--color-${name});}\n`
+      `.hover_background_color_${name}:hover:not(.spoiler .hover_background_color_${name}) {background-color: var(--color-${name});}\n`
     )
   }, '')
   const css = colorVars + helpers
@@ -218,7 +218,7 @@ export const useCollapseStyles = (
 }
 
 export const useCollapseStylesDesktop = useCollapseStyles
-export const collapseStyles = (styles: ReadonlyArray<CollapsibleStyle>): Object | undefined => {
+export const collapseStyles = (styles: ReadonlyArray<CollapsibleStyle>): object | undefined => {
   // fast path for a single style that passes. Often we do stuff like
   // collapseStyle([styles.myStyle, this.props.something && {backgroundColor: 'red'}]), so in the false
   // case we can just take styles.myStyle and not render thrash

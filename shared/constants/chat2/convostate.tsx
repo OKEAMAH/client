@@ -266,7 +266,7 @@ export interface ConvoState extends ConvoStore {
     resetDeleteMe: true
     resolveMaybeMention: (name: string, channel: string) => void
     selectedConversation: () => void
-    sendAudioRecording: (path: string, duration: number, amps: ReadonlyArray<number>) => void
+    sendAudioRecording: (path: string, duration: number, amps: ReadonlyArray<number>) => Promise<void>
     sendTyping: DebouncedFunc<(typing: boolean) => void>
     setCommandStatusInfo: (info?: T.Chat.CommandStatusInfo) => void
     setConvRetentionPolicy: (policy: T.Retention.RetentionPolicy) => void
@@ -510,7 +510,9 @@ const createSlice: Z.ImmerStateCreator<ConvoState> = (set, get) => {
     logger.info('invoking NotifyPopup for chat notification')
     const sound = C.useConfigState.getState().notifySound
 
-    NotifyPopup(title, {body, sound}, -1, author, onClick, onClose)
+    const cleanBody = body.replaceAll(/!>(.*?)<!/g, '•••')
+
+    NotifyPopup(title, {body: cleanBody, sound}, -1, author, onClick, onClose)
   }
 
   const messagesAdd = (messages: Array<T.Chat.Message>, why: string, markAsRead = true) => {
@@ -2554,42 +2556,39 @@ const createSlice: Z.ImmerStateCreator<ConvoState> = (set, get) => {
       fetchConversationBio()
       C.useChatState.getState().dispatch.resetConversationErrored()
     },
-    sendAudioRecording: (path, duration, amps) => {
-      const f = async () => {
-        const outboxID = Common.generateOutboxID()
-        const clientPrev = getClientPrev()
-        const ephemeralLifetime = get().explodingMode
-        const meta = get().meta
-        if (!get().isMetaGood()) {
-          logger.warn('sendAudioRecording: no meta for send')
-          return
-        }
+    sendAudioRecording: async (path, duration, amps) => {
+      const outboxID = Common.generateOutboxID()
+      const clientPrev = getClientPrev()
+      const ephemeralLifetime = get().explodingMode
+      const meta = get().meta
+      if (!get().isMetaGood()) {
+        logger.warn('sendAudioRecording: no meta for send')
+        return
+      }
 
-        const callerPreview = await T.RPCChat.localMakeAudioPreviewRpcPromise({amps, duration})
-        const ephemeralData = ephemeralLifetime !== 0 ? {ephemeralLifetime} : {}
-        try {
-          await T.RPCChat.localPostFileAttachmentLocalNonblockRpcPromise({
-            arg: {
-              ...ephemeralData,
-              callerPreview,
-              conversationID: get().getConvID(),
-              filename: path,
-              identifyBehavior: T.RPCGen.TLFIdentifyBehavior.chatGui,
-              metadata: new Uint8Array(),
-              outboxID,
-              title: '',
-              tlfName: meta.tlfname,
-              visibility: T.RPCGen.TLFVisibility.private,
-            },
-            clientPrev,
-          })
-        } catch (error) {
-          if (error instanceof RPCError) {
-            logger.warn('sendAudioRecording: failed to send attachment: ' + error.message)
-          }
+      const callerPreview = await T.RPCChat.localMakeAudioPreviewRpcPromise({amps, duration})
+      const ephemeralData = ephemeralLifetime !== 0 ? {ephemeralLifetime} : {}
+      try {
+        await T.RPCChat.localPostFileAttachmentLocalNonblockRpcPromise({
+          arg: {
+            ...ephemeralData,
+            callerPreview,
+            conversationID: get().getConvID(),
+            filename: path,
+            identifyBehavior: T.RPCGen.TLFIdentifyBehavior.chatGui,
+            metadata: new Uint8Array(),
+            outboxID,
+            title: '',
+            tlfName: meta.tlfname,
+            visibility: T.RPCGen.TLFVisibility.private,
+          },
+          clientPrev,
+        })
+      } catch (error) {
+        if (error instanceof RPCError) {
+          logger.warn('sendAudioRecording: failed to send attachment: ' + error.message)
         }
       }
-      C.ignorePromise(f())
     },
     sendTyping: throttle(
       typing => {
